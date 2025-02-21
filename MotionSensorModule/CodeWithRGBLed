@@ -1,0 +1,105 @@
+package com.gmail.kvederys.mindaugas.PIRMotionSensorTest;
+
+import com.pi4j.Pi4J; // Import Pi4J library core functionality
+import com.pi4j.context.Context; // Import Pi4J context for managing resources
+import com.pi4j.io.gpio.digital.DigitalInput; // Import interface for digital input
+import com.pi4j.io.gpio.digital.DigitalOutput; // Import interface for digital output
+import com.pi4j.io.gpio.digital.DigitalState; // Import enum for digital input/output states (HIGH/LOW)
+import com.pi4j.io.gpio.digital.DigitalInputConfig; // Import configuration for digital input
+import com.pi4j.io.gpio.digital.PullResistance; // Import enum for pull-up/pull-down resistor configuration
+
+/**
+ * <h2>PIR Motion Sensor with LED Indicator Test Application</h2>
+ * <p>
+ * This application demonstrates how to use an HC-SR501 Passive Infrared (PIR) motion sensor module to detect motion
+ * and control an LED indicator based on the motion detection status, using the Pi4J library.
+ * When motion is detected by the PIR sensor, an LED (in this case, a Blue LED) will be turned ON.
+ * When no motion is detected, the LED will be turned OFF.
+ * </p>
+ * <p>
+ * This program initializes the Pi4J context, configures a digital input pin for the PIR sensor,
+ * configures a digital output pin for the Blue LED, and then enters a continuous loop to monitor the sensor's state.
+ * </p>
+ * <p>
+ * <b>Hardware Setup:</b>
+ * <ul>
+ *     <li><b>5V [Pin 2]</b>      >> POWER - Connect to 5V power supply on Raspberry Pi for PIR sensor module.</li>
+ *     <li><b>GPIO23 [Pin 16]</b> >> PIR SENSOR INPUT - Connect PIR sensor output pin to GPIO pin 23 (or any available GPIO) on Raspberry Pi as input.</li>
+ *     <li><b>GPIO17 [Pin 11]</b> >> BLUE LED OUTPUT - Connect Blue LED control pin (via a resistor if needed) to GPIO pin 17 (or any available GPIO) on Raspberry Pi as output.</li>
+ *     <li><b>GND [Pin 6]</b>     >> GROUND - Connect to a common ground on Raspberry Pi for both PIR sensor and LED.</li>
+ * </ul>
+ * </p>
+ * <p>
+ * <b>Important Notes:</b>
+ * <ul>
+ *     <li>Ensure you have correctly wired the HC-SR501 PIR sensor module and the Blue LED to your Raspberry Pi
+ *         as per the pinout described above.</li>
+ *     <li>For the Blue LED, you might need to use a current limiting resistor in series with the LED to prevent damage.
+ *         The resistor value depends on the LED's forward voltage and desired current.</li>
+ *     <li>Using the proper GPIO pins and a reliable ground connection is crucial for the application to function correctly.</li>
+ * </ul>
+ * </p>
+ * <p>
+ * <b>Software Dependencies:</b>
+ * This application is built using the Pi4J library. Ensure that Pi4J is properly installed and configured in your project.
+ * Refer to the Pi4J official documentation for installation instructions and setup guidance.
+ * </p>
+ */
+public class App {
+
+    public static void main(String[] args) {
+        // Create a new Pi4J context.
+        // This is the starting point for using Pi4J and manages resources and platform access.
+        final Context pi4j = Pi4J.newAutoContext();
+
+        // Configure Digital Output for the Blue LED using Pi4J DigitalOutput Builder.
+        // This sets up GPIO pin 17 as a digital output to control the Blue LED.
+        DigitalOutput blue = pi4j.create(DigitalOutput.newConfigBuilder(pi4j)
+                .id("blue")                     // Assign a unique ID for the Blue LED output (optional, but good practice).
+                .name("Blue LED")               // Assign a descriptive name for the Blue LED output (for easier identification).
+                .address(17)                    // Set the GPIO pin address to 17 (BCM numbering) for the Blue LED control.
+                .shutdown(DigitalState.LOW)     // Set the Blue LED pin state to LOW when the program shuts down (turn off LED on exit).
+                .initial(DigitalState.LOW)      // Set the initial state of the Blue LED pin to LOW (LED starts off).
+                .build());                      // Build the DigitalOutputConfig object and create the DigitalOutput instance.
+
+        // Configure the PIR sensor input (GPIO 23) using Pi4J DigitalInputConfig Builder.
+        // This sets up GPIO pin 23 as a digital input to read the PIR sensor's output.
+        DigitalInputConfig pirConfig = DigitalInput.newConfigBuilder(pi4j)
+                .id("PIR")                      // Assign a unique ID for the PIR sensor input (optional).
+                .name("PIR Sensor")                // Assign a descriptive name for the PIR sensor input.
+                .address(23)                    // Set the GPIO pin address to 23 (BCM numbering) for the PIR sensor input.
+                .pull(PullResistance.PULL_DOWN)  // Configure a pull-down resistor for the PIR sensor input.
+                                                // Ensures the input reads LOW when PIR sensor output is floating (no motion).
+                .provider("pigpio-digital-input") // Specify the 'pigpio-digital-input' provider for digital input.
+                                                // Pigpio provider is recommended for better performance and responsiveness.
+                .build();                      // Build the DigitalInputConfig object.
+        DigitalInput pirSensor = pi4j.create(pirConfig); // Create the DigitalInput instance for the PIR sensor.
+
+        System.out.println("PIR Motion Sensor is active..."); // Print a message to indicate that the PIR motion sensor monitoring has started.
+
+        // Main loop to continuously check the PIR sensor state and control the Blue LED.
+        while (true) {
+            // Check if the PIR sensor state is HIGH, indicating motion detection.
+            if (pirSensor.state() == DigitalState.HIGH) {
+                System.out.println("Motion detected!"); // Print "Motion detected!" to the console when motion is detected.
+                blue.high();                      // Turn ON the Blue LED by setting the LED control pin to HIGH.
+            } else {
+                blue.low();                       // Turn OFF the Blue LED by setting the LED control pin to LOW when no motion is detected.
+            }
+            sleep(100);                         // Pause for 100 milliseconds (0.1 seconds) before checking the sensor state again.
+                                                // This delay reduces CPU usage and prevents overly rapid LED toggling for continuous motion.
+        }
+    }
+
+    // Helper method to sleep for a specified number of milliseconds.
+    // This method simplifies pausing the program execution for short durations.
+    private static void sleep(int millis) {
+        try {
+            Thread.sleep(millis); // Pause the current thread for the specified milliseconds.
+        } catch (InterruptedException ex) {
+            // Handle InterruptedException if the sleep is interrupted.
+            // In this example, we interrupt the current thread to handle the interruption properly.
+            Thread.currentThread().interrupt();
+        }
+    }
+}
